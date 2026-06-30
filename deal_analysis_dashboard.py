@@ -2,24 +2,8 @@ import io
 import re
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 import streamlit as st
-
-try:
-    from pypdf import PdfReader
-except Exception:
-    PdfReader = None
-
-try:
-    from pptx import Presentation
-except Exception:
-    Presentation = None
-
-try:
-    from docx import Document
-except Exception:
-    Document = None
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -39,71 +23,23 @@ st.set_page_config(
 # ======================================================
 # DESIGN NOTE
 # ======================================================
-# This dashboard is designed as a post-facto win/loss intelligence engine.
-#
-# It uses:
-# 1. RFP signal
-# 2. Submitted solution signal
-# 3. Customer feedback signal
-# 4. Historical win/loss pattern signal
-#
-# Synthetic records are included only for demo dynamism.
-# As real pursuit records are uploaded over time, the synthetic influence should reduce.
-# See calculate_learning_mix() for the diminishing synthetic-weight logic.
+# Demo-safe version:
+# - Uses only synthetic pursuit records.
+# - No real client RFP/proposal uploads.
+# - No confidential client artifacts embedded.
+# - Allows sanitized learning-history CSV upload/download only.
 # ======================================================
 
 
 # ======================================================
-# SYNTHETIC PORTFOLIO
+# 20 SYNTHETIC PURSUITS
 # ======================================================
 
 SYNTHETIC_DEALS = [
     {
-        "deal_id": "roche_cluster_2_loss",
-        "deal_name": "Roche Cluster 2 Managed IT Services",
-        "client": "Roche",
-        "sector": "Life Sciences",
-        "outcome": "Lost",
-        "competitor": "Not disclosed",
-        "scope": "ASM, AD, AIOps, LSH Managed Services, Commercial, TechOps",
-        "target_intelligence_score": 78,
-        "rfp": """
-        Managed IT Services RFP for Pharma Medicines. Scope includes Application Managed Services, Application Services,
-        Cross-Functional Services, Run Services, Change mechanisms, transition, transformation, innovation, compliance,
-        service integration, SIAM, AIOps, DevOps, commercial submission, binding proposal, service levels and commercial
-        competitiveness. Evaluation criteria include management commitment, flexibility of business arrangements, solution
-        design, vendor viability, comparable experience, technical capability, delivery methodology, compliance, cost,
-        agreement terms, staff retention, transition plan, transformation plan and innovation commitments. Shortlisting
-        emphasizes solution and delivery model attractiveness, transition credibility, commercial attractiveness, baseline
-        pricing credibility, RFP scope coverage, compliance, absence of delivery risk, solution quality, technical capability,
-        tooling and automation.
-        """,
-        "solution": """
-        HCLTech proposal positioned AI-first operations, SRE-led operational transformation, business observability,
-        agentic L1.5, AIOps, compliance at the core, noiseless transition, global delivery, Commercial and TechOps portfolio
-        models, Veeva, Salesforce, SAP, ServiceNow, manufacturing, quality, lab systems, AI Force.Ops, automation roadmap,
-        transition wave plan, governance, value realization office, transformation office and innovation fund.
-        The solution was strong on technical depth, AI, transition, domain, governance and service integration.
-        Commercial linkage and executive-level solution-commercial storyline needed more direct treatment.
-        """,
-        "feedback": """
-        Customer feedback:
-        - Gap between commercials and solution.
-        - Executive session was more sales pitch and less solution.
-        - Commercials were in mid range.
-
-        Additional interpreted feedback:
-        Positive: Strong life sciences domain understanding, good AIOps and observability solution, credible transition,
-        strong governance and service integration, broad platform coverage.
-        Negative: Commercial story did not clearly link pricing to solution levers, productivity, baseline assumptions and
-        customer value. Executive presentation needed less capability-selling and more direct problem-solution-commercial
-        linkage. Pricing was acceptable but not compelling enough to create downselect advantage.
-        """
-    },
-    {
         "deal_id": "global_pharma_ai_ops_win",
         "deal_name": "Global Pharma AIOps Transformation",
-        "client": "Top 10 Pharma",
+        "client": "Synthetic Global Pharma A",
         "sector": "Life Sciences",
         "outcome": "Won",
         "competitor": "Accenture",
@@ -116,7 +52,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "medtech_sap_ams_loss",
         "deal_name": "MedTech SAP AMS Renewal",
-        "client": "Global MedTech",
+        "client": "Synthetic MedTech B",
         "sector": "Medical Devices",
         "outcome": "Lost",
         "competitor": "TCS",
@@ -129,7 +65,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "biotech_veeva_win",
         "deal_name": "Biotech Veeva Vault Managed Services",
-        "client": "Mid-Market Biotech",
+        "client": "Synthetic Biotech C",
         "sector": "Biotech",
         "outcome": "Won",
         "competitor": "Cognizant",
@@ -142,7 +78,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "healthcare_salesforce_loss",
         "deal_name": "Healthcare Salesforce Patient Services",
-        "client": "Healthcare Provider Network",
+        "client": "Synthetic Healthcare D",
         "sector": "Healthcare",
         "outcome": "Lost",
         "competitor": "IBM",
@@ -155,7 +91,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "pharma_workday_win",
         "deal_name": "Pharma Workday AMS Optimization",
-        "client": "Specialty Pharma",
+        "client": "Synthetic Specialty Pharma E",
         "sector": "Life Sciences",
         "outcome": "Won",
         "competitor": "Infosys",
@@ -168,7 +104,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "big_pharma_data_platform_loss",
         "deal_name": "Big Pharma Commercial Data Platform",
-        "client": "Large Pharma",
+        "client": "Synthetic Large Pharma F",
         "sector": "Life Sciences",
         "outcome": "Lost",
         "competitor": "Capgemini",
@@ -181,7 +117,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "manufacturing_mes_win",
         "deal_name": "Manufacturing MES Support and Modernization",
-        "client": "Global Manufacturer",
+        "client": "Synthetic Manufacturing G",
         "sector": "Life Sciences Manufacturing",
         "outcome": "Won",
         "competitor": "Wipro",
@@ -194,7 +130,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "commercial_omnichannel_loss",
         "deal_name": "Commercial Omnichannel AMS",
-        "client": "European Pharma",
+        "client": "Synthetic European Pharma H",
         "sector": "Life Sciences Commercial",
         "outcome": "Lost",
         "competitor": "Accenture",
@@ -207,7 +143,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "regulatory_ai_win",
         "deal_name": "Regulatory AI Submission Support",
-        "client": "Biopharma R&D",
+        "client": "Synthetic Biopharma R&D I",
         "sector": "Life Sciences R&D",
         "outcome": "Won",
         "competitor": "Deloitte",
@@ -220,7 +156,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "hospital_app_modernization_loss",
         "deal_name": "Hospital Application Modernization",
-        "client": "Hospital Network",
+        "client": "Synthetic Hospital Network J",
         "sector": "Healthcare",
         "outcome": "Lost",
         "competitor": "Local SI",
@@ -233,7 +169,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "gxp_validation_services_win",
         "deal_name": "GxP Validation Managed Services",
-        "client": "Global Biotech",
+        "client": "Synthetic Global Biotech K",
         "sector": "Biotech",
         "outcome": "Won",
         "competitor": "Cognizant",
@@ -246,7 +182,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "service_now_siam_loss",
         "deal_name": "ServiceNow SIAM and AMS",
-        "client": "Global Healthcare",
+        "client": "Synthetic Global Healthcare L",
         "sector": "Healthcare",
         "outcome": "Lost",
         "competitor": "IBM",
@@ -259,7 +195,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "clinical_platform_support_win",
         "deal_name": "Clinical Platform Support",
-        "client": "Clinical Research Organization",
+        "client": "Synthetic Clinical Research M",
         "sector": "Clinical",
         "outcome": "Won",
         "competitor": "TCS",
@@ -272,7 +208,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "sap_s4_transformation_loss",
         "deal_name": "SAP S/4HANA Transformation Support",
-        "client": "Pharma Manufacturing",
+        "client": "Synthetic Pharma Manufacturing N",
         "sector": "Life Sciences Manufacturing",
         "outcome": "Lost",
         "competitor": "Infosys",
@@ -285,7 +221,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "patient_access_platform_win",
         "deal_name": "Patient Access Platform Operations",
-        "client": "US Pharma",
+        "client": "Synthetic US Pharma O",
         "sector": "Commercial / Patient Services",
         "outcome": "Won",
         "competitor": "Deloitte",
@@ -298,7 +234,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "qms_veeva_loss",
         "deal_name": "Veeva QMS Global Support",
-        "client": "Global Pharma Quality",
+        "client": "Synthetic Global Pharma Quality P",
         "sector": "Quality",
         "outcome": "Lost",
         "competitor": "Veeva Partner",
@@ -311,7 +247,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "enterprise_ams_cost_takeout_win",
         "deal_name": "Enterprise AMS Cost Takeout",
-        "client": "Global Life Sciences",
+        "client": "Synthetic Global Life Sciences Q",
         "sector": "Life Sciences",
         "outcome": "Won",
         "competitor": "Capgemini",
@@ -324,7 +260,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "analytics_bi_managed_services_loss",
         "deal_name": "Analytics and BI Managed Services",
-        "client": "Regional Pharma",
+        "client": "Synthetic Regional Pharma R",
         "sector": "Life Sciences Commercial",
         "outcome": "Lost",
         "competitor": "Local Analytics Firm",
@@ -337,7 +273,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "multi_vendor_champion_win",
         "deal_name": "Multi-Vendor Champion Run Services",
-        "client": "Global Pharma Group Functions",
+        "client": "Synthetic Global Pharma S",
         "sector": "Life Sciences",
         "outcome": "Won",
         "competitor": "Cognizant",
@@ -350,7 +286,7 @@ SYNTHETIC_DEALS = [
     {
         "deal_id": "devops_run_change_loss",
         "deal_name": "DevOps Run-Change Integrated Services",
-        "client": "Digital Health Company",
+        "client": "Synthetic Digital Health T",
         "sector": "Healthcare Technology",
         "outcome": "Lost",
         "competitor": "Product Engineering Firm",
@@ -460,67 +396,12 @@ WIN_LOSS_DIMENSIONS = [
 
 
 # ======================================================
-# FILE EXTRACTION
+# HELPERS
 # ======================================================
 
 def clean_text(text):
     return re.sub(r"\s+", " ", text or "").strip()
 
-
-def extract_pdf(file_obj):
-    if PdfReader is None:
-        raise RuntimeError("pypdf is not installed. Add pypdf to requirements.txt.")
-    reader = PdfReader(file_obj)
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
-
-
-def extract_pptx(file_obj):
-    if Presentation is None:
-        raise RuntimeError("python-pptx is not installed. Add python-pptx to requirements.txt.")
-    prs = Presentation(file_obj)
-    chunks = []
-    for i, slide in enumerate(prs.slides, start=1):
-        chunks.append(f"\n--- Slide {i} ---")
-        for shape in slide.shapes:
-            if hasattr(shape, "text") and shape.text:
-                chunks.append(shape.text)
-            if hasattr(shape, "has_table") and shape.has_table:
-                for row in shape.table.rows:
-                    chunks.append(" | ".join(cell.text for cell in row.cells))
-    return "\n".join(chunks)
-
-
-def extract_docx(file_obj):
-    if Document is None:
-        raise RuntimeError("python-docx is not installed. Add python-docx to requirements.txt.")
-    doc = Document(file_obj)
-    chunks = [p.text for p in doc.paragraphs if p.text.strip()]
-    for table in doc.tables:
-        for row in table.rows:
-            chunks.append(" | ".join(cell.text for cell in row.cells))
-    return "\n".join(chunks)
-
-
-def extract_text(uploaded_file):
-    name = uploaded_file.name.lower()
-    data = uploaded_file.read()
-    buffer = io.BytesIO(data)
-
-    if name.endswith(".pdf"):
-        return extract_pdf(buffer)
-    if name.endswith(".pptx"):
-        return extract_pptx(buffer)
-    if name.endswith(".docx"):
-        return extract_docx(buffer)
-    if name.endswith(".txt"):
-        return data.decode("utf-8", errors="ignore")
-
-    raise ValueError("Unsupported file type. Upload PDF, PPTX, DOCX, or TXT.")
-
-
-# ======================================================
-# SCORING HELPERS
-# ======================================================
 
 def keyword_hits(text, keywords):
     text_lower = text.lower()
@@ -543,9 +424,6 @@ def cosine_score(query_terms, text):
 
 
 def calculate_learning_mix(real_history_count):
-    # Synthetic weight decays as real records accumulate.
-    # At 0 real records: 100% synthetic context.
-    # At 20 real records: 0% synthetic context.
     real_weight = min(1.0, real_history_count / 20.0)
     synthetic_weight = round(1.0 - real_weight, 2)
     real_weight = round(real_weight, 2)
@@ -557,7 +435,6 @@ def score_dimension(rfp_text, solution_text, feedback_text, dimension):
     neg_terms = dimension["negative"]
 
     combined_solution = rfp_text + " " + solution_text
-    combined_all = rfp_text + " " + solution_text + " " + feedback_text
 
     pos_count, pos_hits = keyword_hits(combined_solution, pos_terms)
     neg_count, neg_hits = keyword_hits(feedback_text, neg_terms)
@@ -565,13 +442,22 @@ def score_dimension(rfp_text, solution_text, feedback_text, dimension):
     pos_sem = cosine_score(pos_terms, combined_solution)
     neg_sem = cosine_score(neg_terms, feedback_text)
 
-    strength = min(1.0, (pos_count / max(3, min(8, len(pos_terms)))) * 0.70 + min(1.0, pos_sem * 6) * 0.30)
-    friction = min(1.0, (neg_count / max(2, min(5, len(neg_terms)))) * 0.70 + min(1.0, neg_sem * 6) * 0.30)
+    strength = min(
+        1.0,
+        (pos_count / max(3, min(8, len(pos_terms)))) * 0.70
+        + min(1.0, pos_sem * 6) * 0.30
+    )
+    friction = min(
+        1.0,
+        (neg_count / max(2, min(5, len(neg_terms)))) * 0.70
+        + min(1.0, neg_sem * 6) * 0.30
+    )
 
-    # Post-facto root-cause view:
-    # A dimension can score moderately even if it is a loss driver, because the score represents
-    # how explainable/actionable the dimension is, not whether the proposal was perfect.
-    explainability = min(1.0, 0.55 * max(strength, friction) + 0.45 * ((pos_count + neg_count) / max(4, min(10, len(pos_terms) + len(neg_terms)))))
+    explainability = min(
+        1.0,
+        0.55 * max(strength, friction)
+        + 0.45 * ((pos_count + neg_count) / max(4, min(10, len(pos_terms) + len(neg_terms))))
+    )
     quality = max(0.0, min(1.0, 0.70 * strength + 0.30 * (1 - friction)))
 
     final_index = 0.45 * quality + 0.55 * explainability
@@ -605,14 +491,12 @@ def analyze_deal(rfp_text, solution_text, feedback_text, target_score=None):
 
     raw_total = round(float(scorecard["Weighted Score"].sum()), 2)
 
-    # For synthetic demo deals, keep scores executive-realistic and stable.
-    # For uploaded real deals, the model uses the calculated score.
     if target_score is not None:
         total = float(target_score)
         factor = total / raw_total if raw_total else 1.0
         scorecard["Weighted Score"] = (scorecard["Weighted Score"] * factor).round(2)
     else:
-        total = max(70.0, raw_total)  # executive-friendly floor for intelligence maturity
+        total = max(70.0, raw_total)
         factor = total / raw_total if raw_total else 1.0
         scorecard["Weighted Score"] = (scorecard["Weighted Score"] * factor).round(2)
 
@@ -652,12 +536,12 @@ def customer_feedback_summary(feedback_text):
     return pd.DataFrame(rows).sort_values("Signal Strength", ascending=False)
 
 
-def executive_narrative(outcome, total, loss_drivers, win_drivers):
+def executive_narrative(outcome, loss_drivers, win_drivers):
     if outcome == "Won":
         summary = "This deal appears to have converted because the customer saw a credible connection between priorities, solution, proof and commercial value."
         action = "Convert the strongest win drivers into reusable pursuit assets and replicate them in similar deals."
     elif outcome == "Lost":
-        summary = "This loss is explainable and actionable. The core issue is not necessarily solution weakness; it is the gap between what the customer valued, how the executive story landed and how commercials were connected to the solution."
+        summary = "This loss is explainable and actionable. The issue appears to be the gap between what the customer valued, how the story landed and how commercials were connected to the proposed solution."
         action = "For the next pursuit, fix the commercial-solution bridge, make the executive session solution-led and convert feedback into a sharper win-theme playbook."
     else:
         summary = "The available feedback suggests partial clarity. More customer debrief detail will improve confidence in the root-cause readout."
@@ -686,44 +570,57 @@ def build_history_record(deal_name, client, outcome, total, loss_drivers, win_dr
 
 st.title("🏆 Win/Loss Intelligence & Pursuit Improvement Dashboard")
 st.caption(
-    "Post-facto intelligence engine that demystifies customer feedback, explains why deals were won or lost, "
-    "and converts lessons into next-deal actions."
+    "Demo-safe synthetic portfolio view. No real client RFPs, solution decks or confidential feedback are embedded or uploaded."
 )
 
 with st.sidebar:
-    st.header("Demo / Data Mode")
-    mode = st.radio(
-        "Choose analysis mode",
-        ["Synthetic proposal portfolio", "Upload real pursuit artifacts"],
-        index=0
+    st.header("Synthetic Proposal Portfolio")
+
+    deal_options = {d["deal_name"]: d for d in SYNTHETIC_DEALS}
+    selected_name = st.selectbox("Select proposal / pursuit", list(deal_options.keys()), index=0)
+    selected_deal = deal_options[selected_name]
+
+    st.divider()
+
+    st.header("Filters")
+    outcome_filter = st.multiselect(
+        "Outcome filter",
+        sorted(set(d["outcome"] for d in SYNTHETIC_DEALS)),
+        default=sorted(set(d["outcome"] for d in SYNTHETIC_DEALS)),
+    )
+    sector_filter = st.multiselect(
+        "Sector filter",
+        sorted(set(d["sector"] for d in SYNTHETIC_DEALS)),
+        default=sorted(set(d["sector"] for d in SYNTHETIC_DEALS)),
     )
 
-    history_file = st.file_uploader("Optional: upload prior win/loss history CSV", type=["csv"])
+    filtered_deals = [
+        d for d in SYNTHETIC_DEALS
+        if d["outcome"] in outcome_filter and d["sector"] in sector_filter
+    ]
 
-    real_history_count = 0
+    st.metric("Synthetic pursuits", len(filtered_deals))
+
+    st.divider()
+
+    st.header("Sanitized Learning History")
+    history_file = st.file_uploader("Optional: upload sanitized win/loss history CSV", type=["csv"])
+
     history_df = pd.DataFrame()
+    real_history_count = 0
     if history_file is not None:
         try:
             history_df = pd.read_csv(history_file)
             real_history_count = len(history_df)
         except Exception:
-            history_df = pd.DataFrame()
-            real_history_count = 0
+            st.warning("Could not read uploaded CSV. Please upload a sanitized CSV generated by this app.")
 
     synthetic_weight, real_weight = calculate_learning_mix(real_history_count)
-
     st.metric("Synthetic influence", f"{int(synthetic_weight * 100)}%")
     st.metric("Real-deal influence", f"{int(real_weight * 100)}%")
-    st.caption("Synthetic influence decays to 0% after 20 real records are added to the learning history.")
+    st.caption("Synthetic influence decays to 0% after 20 sanitized real history records.")
 
     st.divider()
-
-    if mode == "Synthetic proposal portfolio":
-        deal_options = {d["deal_name"]: d for d in SYNTHETIC_DEALS}
-        selected_name = st.selectbox("Select proposal / pursuit", list(deal_options.keys()), index=0)
-        selected_deal = deal_options[selected_name]
-    else:
-        selected_deal = None
 
     st.header("Model Weights")
     st.write(f"Total weight: **{sum(d['weight'] for d in WIN_LOSS_DIMENSIONS)}**")
@@ -734,68 +631,40 @@ with st.sidebar:
     )
 
 
-st.subheader("1. Pursuit Selection & Input Artifacts")
+st.subheader("1. Portfolio Overview")
 
-if mode == "Synthetic proposal portfolio":
-    deal_name = selected_deal["deal_name"]
-    client_name = selected_deal["client"]
-    outcome = selected_deal["outcome"]
-    competitor = selected_deal["competitor"]
-    scope = selected_deal["scope"]
-    rfp_text = clean_text(selected_deal["rfp"])
-    solution_text = clean_text(selected_deal["solution"])
-    feedback_text = clean_text(selected_deal["feedback"])
-    target_score = selected_deal["target_intelligence_score"]
+portfolio_df = pd.DataFrame([
+    {
+        "Deal": d["deal_name"],
+        "Client": d["client"],
+        "Sector": d["sector"],
+        "Outcome": d["outcome"],
+        "Competitor": d["competitor"],
+        "Scope": d["scope"],
+        "Win/Loss Intelligence Score": d["target_intelligence_score"],
+    }
+    for d in filtered_deals
+])
 
-    st.success(f"Loaded synthetic pursuit: {deal_name}")
+st.dataframe(portfolio_df, use_container_width=True, hide_index=True)
 
-else:
-    c1, c2 = st.columns(2)
-    with c1:
-        deal_name = st.text_input("Deal name", value="New LSH Pursuit")
-        client_name = st.text_input("Client / account", value="Client")
-        outcome = st.selectbox("Deal outcome", ["Lost", "Won", "No Decision", "Down-selected", "Pending Debrief"], index=0)
-    with c2:
-        competitor = st.text_input("Known winner / competitor", value="")
-        scope = st.text_input("Deal scope", value="ASM, AD, AIOps, LSH Managed Services")
+st.subheader("2. Selected Pursuit Context")
 
-    u1, u2, u3 = st.columns(3)
-    with u1:
-        rfp_file = st.file_uploader("Upload RFP", type=["pdf", "pptx", "docx", "txt"])
-    with u2:
-        solution_file = st.file_uploader("Upload submitted solution / proposal", type=["pdf", "pptx", "docx", "txt"])
-    with u3:
-        feedback_file = st.file_uploader("Optional: upload customer feedback", type=["pdf", "pptx", "docx", "txt"])
-
-    manual_feedback = st.text_area(
-        "Paste customer feedback / debrief notes",
-        value="Gap between commercials and solution.\nExec session - more sales pitch, less solution.\nCommercials are in mid range.",
-        height=140
-    )
-
-    if not rfp_file or not solution_file:
-        st.warning("Upload RFP and solution files, or switch to Synthetic proposal portfolio mode.")
-        st.stop()
-
-    with st.spinner("Parsing uploaded artifacts..."):
-        rfp_text = clean_text(extract_text(rfp_file))
-        solution_text = clean_text(extract_text(solution_file))
-        feedback_parts = [manual_feedback]
-        if feedback_file is not None:
-            feedback_parts.append(extract_text(feedback_file))
-        feedback_text = clean_text("\n".join(feedback_parts))
-
-    target_score = None
-
-
-st.subheader("2. Deal Context")
+deal_name = selected_deal["deal_name"]
+client_name = selected_deal["client"]
+outcome = selected_deal["outcome"]
+competitor = selected_deal["competitor"]
+scope = selected_deal["scope"]
+rfp_text = clean_text(selected_deal["rfp"])
+solution_text = clean_text(selected_deal["solution"])
+feedback_text = clean_text(selected_deal["feedback"])
+target_score = selected_deal["target_intelligence_score"]
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Client", client_name)
 c2.metric("Outcome", outcome)
-c3.metric("Known competitor", competitor if competitor else "Unknown")
+c3.metric("Known competitor", competitor)
 c4.metric("Scope", scope[:24] + "..." if len(scope) > 24 else scope)
-
 
 scorecard, total, win_drivers, loss_drivers = analyze_deal(
     rfp_text=rfp_text,
@@ -804,7 +673,7 @@ scorecard, total, win_drivers, loss_drivers = analyze_deal(
     target_score=target_score
 )
 
-summary, top_loss, top_win, next_action = executive_narrative(outcome, total, loss_drivers, win_drivers)
+summary, top_loss, top_win, next_action = executive_narrative(outcome, loss_drivers, win_drivers)
 
 st.subheader("3. Executive Win/Loss Readout")
 
@@ -834,8 +703,8 @@ with f1:
     st.markdown("### Feedback Theme Heatmap")
     st.dataframe(feedback_theme_df, use_container_width=True, hide_index=True)
 with f2:
-    st.markdown("### Raw / Parsed Customer Feedback")
-    st.write(feedback_text[:3500])
+    st.markdown("### Synthetic Customer Feedback")
+    st.write(feedback_text)
 
 st.subheader("5. Root-Cause Scorecard")
 
@@ -880,21 +749,21 @@ if playbook:
 else:
     st.write("No prioritized improvement actions available.")
 
-st.subheader("8. Evolving Learning Base")
+st.subheader("8. Sanitized Learning Base")
 
 current_record = build_history_record(deal_name, client_name, outcome, total, loss_drivers, win_drivers)
 updated_history = pd.concat([history_df, pd.DataFrame([current_record])], ignore_index=True)
 
 st.write(
     "Download this CSV after each analysis and upload it in the next session. "
-    "As the real history grows, synthetic influence automatically decays."
+    "Use sanitized metadata only. Do not include client-confidential RFP content, proposal content, pricing or named stakeholders."
 )
 st.dataframe(updated_history, use_container_width=True, hide_index=True)
 
 st.download_button(
-    "Download updated win/loss learning history CSV",
+    "Download sanitized win/loss learning history CSV",
     data=updated_history.to_csv(index=False).encode("utf-8"),
-    file_name="win_loss_learning_history.csv",
+    file_name="sanitized_win_loss_learning_history.csv",
     mime="text/csv"
 )
 
@@ -917,6 +786,7 @@ with pd.ExcelWriter(output, engine="openpyxl") as writer:
         "Real Deal Influence": real_weight,
     }]).to_excel(writer, index=False, sheet_name="Executive Summary")
 
+    portfolio_df.to_excel(writer, index=False, sheet_name="Synthetic Portfolio")
     feedback_theme_df.to_excel(writer, index=False, sheet_name="Feedback Themes")
     scorecard.to_excel(writer, index=False, sheet_name="Root Cause Scorecard")
     loss_drivers.to_excel(writer, index=False, sheet_name="Loss Drivers")
@@ -927,18 +797,18 @@ with pd.ExcelWriter(output, engine="openpyxl") as writer:
 st.download_button(
     "Download Excel Win/Loss Analysis",
     data=output.getvalue(),
-    file_name="win_loss_intelligence_analysis.xlsx",
+    file_name="synthetic_win_loss_intelligence_analysis.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 )
 
-st.subheader("10. Artifact Preview")
+st.subheader("10. Synthetic Artifact Preview")
 
-with st.expander("RFP text preview"):
-    st.write(rfp_text[:8000])
+with st.expander("Synthetic RFP preview"):
+    st.write(rfp_text)
 
-with st.expander("Solution text preview"):
-    st.write(solution_text[:8000])
+with st.expander("Synthetic solution preview"):
+    st.write(solution_text)
 
-with st.expander("Customer feedback preview"):
-    st.write(feedback_text[:8000])
+with st.expander("Synthetic customer feedback preview"):
+    st.write(feedback_text)
 
