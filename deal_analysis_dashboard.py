@@ -24,71 +24,444 @@ except Exception:
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(page_title="Win/Loss Intelligence Dashboard", page_icon="🏆", layout="wide")
 
-SYNTHETIC_RFP = """
-Synthetic LSH Managed IT Services RFP
+# ======================================================
+# PAGE CONFIG
+# ======================================================
 
-The customer is seeking a long-term partner for Application Managed Services and Application Development across Commercial and Technical Operations. Scope includes Run services, selected Change mechanisms, transition, service integration, AIOps, DevOps, transformation, innovation, compliance, service levels, and commercial competitiveness.
+st.set_page_config(
+    page_title="Win/Loss Intelligence Dashboard",
+    page_icon="🏆",
+    layout="wide"
+)
 
-The customer expects a compliant response, binding pricing, clear baseline service charges, transparent cost drivers, defensible delivery capacity, no financial engineering, and pricing that is not dependent on optional transformation initiatives. The customer may evaluate commercial attractiveness, credibility of baseline pricing, scope coverage, contract compliance, solution quality, transition confidence, technical capability, automation, service reliability, compliance, GxP understanding, staff retention, transformation and innovation commitments.
 
-The customer expects vendors to avoid generic sales material and provide concrete solution detail, including technical solution overview, AIOps solution, delivery model, end-to-end ownership, service credit construct, niche resource capability, software ownership, DevOps delivery model, innovation plan, key assumptions, dependencies, transition plan, transformation plan, and termination assistance.
-"""
+# ======================================================
+# DESIGN NOTE
+# ======================================================
+# This dashboard is designed as a post-facto win/loss intelligence engine.
+#
+# It uses:
+# 1. RFP signal
+# 2. Submitted solution signal
+# 3. Customer feedback signal
+# 4. Historical win/loss pattern signal
+#
+# Synthetic records are included only for demo dynamism.
+# As real pursuit records are uploaded over time, the synthetic influence should reduce.
+# See calculate_learning_mix() for the diminishing synthetic-weight logic.
+# ======================================================
 
-SYNTHETIC_SOLUTION = """
-Synthetic LSH Proposal Response
 
-The vendor proposes an integrated and intelligent application services model with global delivery, AI-first operations, SRE-led service reliability, business observability, compliance at the core, transition governance, portfolio rationalization, and innovation. The solution includes Commercial and TechOps coverage across platforms such as SAP, Veeva, Salesforce, ServiceNow, Workday, cloud, data platforms, lab systems, manufacturing systems, QMS and integration layers.
+# ======================================================
+# SYNTHETIC PORTFOLIO
+# ======================================================
 
-The response emphasizes AI-driven predictive operations, AIOps, self-healing, ticket prevention, knowledge management, business observability, agentic L1.5, DevOps-integrated delivery, end-to-end ownership, transition waves, PMO governance, value realization office, transformation office, experience management office, innovation funds, and transformation funds.
+SYNTHETIC_DEALS = [
+    {
+        "deal_id": "roche_cluster_2_loss",
+        "deal_name": "Roche Cluster 2 Managed IT Services",
+        "client": "Roche",
+        "sector": "Life Sciences",
+        "outcome": "Lost",
+        "competitor": "Not disclosed",
+        "scope": "ASM, AD, AIOps, LSH Managed Services, Commercial, TechOps",
+        "target_intelligence_score": 78,
+        "rfp": """
+        Managed IT Services RFP for Pharma Medicines. Scope includes Application Managed Services, Application Services,
+        Cross-Functional Services, Run Services, Change mechanisms, transition, transformation, innovation, compliance,
+        service integration, SIAM, AIOps, DevOps, commercial submission, binding proposal, service levels and commercial
+        competitiveness. Evaluation criteria include management commitment, flexibility of business arrangements, solution
+        design, vendor viability, comparable experience, technical capability, delivery methodology, compliance, cost,
+        agreement terms, staff retention, transition plan, transformation plan and innovation commitments. Shortlisting
+        emphasizes solution and delivery model attractiveness, transition credibility, commercial attractiveness, baseline
+        pricing credibility, RFP scope coverage, compliance, absence of delivery risk, solution quality, technical capability,
+        tooling and automation.
+        """,
+        "solution": """
+        HCLTech proposal positioned AI-first operations, SRE-led operational transformation, business observability,
+        agentic L1.5, AIOps, compliance at the core, noiseless transition, global delivery, Commercial and TechOps portfolio
+        models, Veeva, Salesforce, SAP, ServiceNow, manufacturing, quality, lab systems, AI Force.Ops, automation roadmap,
+        transition wave plan, governance, value realization office, transformation office and innovation fund.
+        The solution was strong on technical depth, AI, transition, domain, governance and service integration.
+        Commercial linkage and executive-level solution-commercial storyline needed more direct treatment.
+        """,
+        "feedback": """
+        Customer feedback:
+        - Gap between commercials and solution.
+        - Executive session was more sales pitch and less solution.
+        - Commercials were in mid range.
 
-The proposal is strong on solution themes, technology depth, AI/automation, domain narrative and transition confidence. However, the executive presentation may need tighter linkage between the solution architecture and the commercial model, clearer quantified baseline pricing logic, less generic sales messaging, and stronger executive-level explanation of how the solution changes cost, risk and outcomes.
-"""
-
-SYNTHETIC_CUSTOMER_FEEDBACK = """
-Outcome: Lost
-
-Customer feedback:
-1. Gap between commercials and solution.
-2. Executive session felt like more sales pitch and less solution.
-3. Commercials were in the mid range.
-
-Additional synthetic industry-style feedback:
-Positive:
-- Strong life sciences domain language and good understanding of regulated environments.
-- Good coverage of AIOps, automation, observability and AI-enabled operations.
-- Transition approach was structured and credible.
-- Platform breadth across enterprise applications was appreciated.
-- Governance model and service integration narrative were strong.
-
-Negative:
-- Commercial model was not sufficiently linked to solution levers, productivity commitments and baseline assumptions.
-- Executive messaging was too broad and not enough anchored in the customer evaluation criteria.
-- Pricing was acceptable but not compelling enough to create a clear downselect advantage.
-- Value story did not clearly separate run savings, transformation savings, vendor investment and customer investment.
-- Too many innovation claims were presented without enough proof of contractual commitment, timing and measurable impact.
-- Some solution themes were strong but sounded generic compared with competitor-specific propositions.
-- The response did not sufficiently show how commercial flexibility would work if scope was split across multiple vendors.
-- Productivity improvements were directionally strong but needed clearer year-wise realization, accountability and risk-sharing.
-- The customer expected more direct answers to how baseline pricing would remain defensible without relying on future transformation.
-- Executive session needed a sharper problem-solution-commercial storyline, not a capabilities showcase.
-"""
-
-WIN_LOSS_DIMENSIONS = [
-    {"id": "customer_priority_alignment", "name": "Customer Priority Alignment", "weight": 12, "positive": ["aligned", "customer priority", "evaluation criteria", "business objective", "sourcing objective", "specific", "direct answer", "requirement", "scope coverage"], "negative": ["misaligned", "generic", "not specific", "missed priority", "did not address", "unclear", "broad", "not anchored"], "recommendation": "Anchor every executive message and solution section to the customer's stated evaluation criteria, sourcing objectives and shortlisting logic."},
-    {"id": "commercial_competitiveness", "name": "Commercial Competitiveness", "weight": 13, "positive": ["competitive", "pricing", "commercial", "baseline", "productivity", "risk sharing", "discount", "savings", "TCO", "defensible", "transparent"], "negative": ["mid range", "too expensive", "uncompetitive", "commercial gap", "pricing gap", "not compelling", "financial engineering", "not transparent"], "recommendation": "Create a clear commercial bridge from baseline cost to productivity, run savings, optional transformation, investments, risks and customer value."},
-    {"id": "solution_commercial_linkage", "name": "Solution-to-Commercial Linkage", "weight": 12, "positive": ["solution linked", "commercial linkage", "savings lever", "MECE", "cost driver", "pricing structure", "productivity lever", "baseline adjustment"], "negative": ["gap between commercials and solution", "commercials and solution", "not linked", "disconnect", "unclear linkage", "solution gap"], "recommendation": "For every major solution lever, show the commercial implication: cost reduction, investment, timing, owner, risk and measurable benefit."},
-    {"id": "executive_messaging", "name": "Executive Messaging Quality", "weight": 10, "positive": ["executive", "board", "outcome", "business value", "decision", "strategic", "clear story", "why us"], "negative": ["sales pitch", "too much sales", "marketing", "capabilities showcase", "not enough solution", "generic deck", "too broad"], "recommendation": "Use an executive storyline: customer problem, decision criteria, proposed answer, quantified value, commercial confidence and proof."},
-    {"id": "differentiation_win_themes", "name": "Differentiation & Win Themes", "weight": 10, "positive": ["differentiator", "win theme", "unique", "competitive advantage", "why us", "proof point", "accelerator", "case study"], "negative": ["generic", "not differentiated", "similar to competitors", "unclear why", "no proof", "weak win theme"], "recommendation": "Convert capabilities into 3-5 client-specific win themes with proof, quantified benefit and competitor-aware positioning."},
-    {"id": "ai_innovation_relevance", "name": "AI & Innovation Relevance", "weight": 9, "positive": ["AI", "GenAI", "AIOps", "automation", "self-healing", "observability", "agentic", "predictive", "innovation", "copilot"], "negative": ["AI unclear", "innovation vague", "not committed", "no roadmap", "vendor lock-in", "unclear ownership", "hype"], "recommendation": "Tie AI use cases to specific operational outcomes, adoption roadmap, data/security model, contractual commitments and measurable productivity."},
-    {"id": "domain_credibility", "name": "LSH Domain Credibility", "weight": 8, "positive": ["GxP", "CSV", "CSA", "validation", "pharma", "life sciences", "clinical", "regulatory", "manufacturing", "quality", "patient"], "negative": ["domain gap", "insufficient domain", "not enough pharma", "weak regulatory", "weak validation", "no LSH proof"], "recommendation": "Strengthen LSH proof points by function: Commercial, TechOps, Quality, Manufacturing, Clinical, Regulatory, Safety and Patient."},
-    {"id": "delivery_confidence", "name": "Delivery Confidence", "weight": 8, "positive": ["transition", "governance", "PMO", "ramp-up", "resource", "site", "wave", "risk mitigation", "RACI", "SLA"], "negative": ["delivery risk", "unclear transition", "weak governance", "resourcing concern", "ramp-up risk", "unclear accountability"], "recommendation": "Show day-0 to steady-state execution with named governance, resourcing, risks, mitigation, dependencies, and measurable readiness gates."},
-    {"id": "proof_references", "name": "Proof Points & References", "weight": 7, "positive": ["case study", "reference", "benchmark", "proven", "track record", "comparable", "experience", "similar client"], "negative": ["no proof", "unsupported", "claim", "not evidenced", "insufficient reference", "weak case study"], "recommendation": "Back major claims with relevant life sciences examples, benchmarks, before/after metrics and named reusable assets."},
-    {"id": "rfp_responsiveness", "name": "RFP Responsiveness & Compliance", "weight": 6, "positive": ["compliant", "response", "format", "instructions", "mandatory", "binding", "contract", "assumptions", "dependencies"], "negative": ["non-compliant", "missing", "not submitted", "wrong format", "deferred", "assumption", "change control"], "recommendation": "Track every RFP instruction and evaluation criterion to a response artifact, owner and evidence location."},
-    {"id": "future_repeatability", "name": "Repeatability for Future Deals", "weight": 5, "positive": ["repeat", "playbook", "replicable", "reuse", "template", "standard", "pattern", "learning"], "negative": ["one-off", "not reusable", "no learning", "not captured", "lost lesson"], "recommendation": "Convert this deal's learnings into a reusable pursuit playbook: solution, commercial, executive messaging and objection handling."},
+        Additional interpreted feedback:
+        Positive: Strong life sciences domain understanding, good AIOps and observability solution, credible transition,
+        strong governance and service integration, broad platform coverage.
+        Negative: Commercial story did not clearly link pricing to solution levers, productivity, baseline assumptions and
+        customer value. Executive presentation needed less capability-selling and more direct problem-solution-commercial
+        linkage. Pricing was acceptable but not compelling enough to create downselect advantage.
+        """
+    },
+    {
+        "deal_id": "global_pharma_ai_ops_win",
+        "deal_name": "Global Pharma AIOps Transformation",
+        "client": "Top 10 Pharma",
+        "sector": "Life Sciences",
+        "outcome": "Won",
+        "competitor": "Accenture",
+        "scope": "AIOps, ASM, ServiceNow, Observability",
+        "target_intelligence_score": 84,
+        "rfp": "Customer sought AIOps, incident prevention, ServiceNow optimization, observability, SRE model, service reliability, measurable MTTR reduction and strong transformation roadmap.",
+        "solution": "Proposal included AIOps, SRE, self-healing, ticket deflection, ServiceNow integration, observability, governance, phased roadmap, productivity commitments and domain proof points.",
+        "feedback": "Positive: Strong AI operations roadmap, practical use cases, credible SRE model, clear productivity commitments and strong executive story. Negative: Customer wanted more detail on data ownership and model governance."
+    },
+    {
+        "deal_id": "medtech_sap_ams_loss",
+        "deal_name": "MedTech SAP AMS Renewal",
+        "client": "Global MedTech",
+        "sector": "Medical Devices",
+        "outcome": "Lost",
+        "competitor": "TCS",
+        "scope": "SAP, AMS, Validation, Commercials",
+        "target_intelligence_score": 73,
+        "rfp": "RFP focused on SAP AMS, GxP validation, cost reduction, service levels, offshore delivery, transition risk, contractual compliance and pricing competitiveness.",
+        "solution": "Solution covered SAP AMS, validation, transition, global delivery and governance. Commercial proposal was conservative with limited risk sharing.",
+        "feedback": "Negative: Pricing was higher than expected, productivity commitments were weak, and solution did not sufficiently prove cost takeout. Positive: SAP and validation capability were credible."
+    },
+    {
+        "deal_id": "biotech_veeva_win",
+        "deal_name": "Biotech Veeva Vault Managed Services",
+        "client": "Mid-Market Biotech",
+        "sector": "Biotech",
+        "outcome": "Won",
+        "competitor": "Cognizant",
+        "scope": "Veeva, Regulatory, Quality, AMS",
+        "target_intelligence_score": 86,
+        "rfp": "Customer required Veeva Vault regulatory and quality support, GxP, validation, release management, managed services, transition and domain expertise.",
+        "solution": "Proposal offered Veeva CoE, validation playbooks, release factory, managed services, strong case studies, transition plan and flexible pricing.",
+        "feedback": "Positive: Strong Veeva domain credibility, practical transition, good regulatory understanding, flexible commercials and relevant proof points. Negative: AI story was light but not decisive."
+    },
+    {
+        "deal_id": "healthcare_salesforce_loss",
+        "deal_name": "Healthcare Salesforce Patient Services",
+        "client": "Healthcare Provider Network",
+        "sector": "Healthcare",
+        "outcome": "Lost",
+        "competitor": "IBM",
+        "scope": "Salesforce, Patient Services, Integration",
+        "target_intelligence_score": 71,
+        "rfp": "RFP required Salesforce Health Cloud, patient engagement, integration, data privacy, HIPAA, service model, user experience and measurable business outcomes.",
+        "solution": "Solution included Salesforce support, integration, data privacy, operating model and patient experience improvements.",
+        "feedback": "Negative: Customer felt the response was technically sound but not differentiated. Executive story did not quantify patient experience outcomes. Positive: Security and Salesforce skills were acceptable."
+    },
+    {
+        "deal_id": "pharma_workday_win",
+        "deal_name": "Pharma Workday AMS Optimization",
+        "client": "Specialty Pharma",
+        "sector": "Life Sciences",
+        "outcome": "Won",
+        "competitor": "Infosys",
+        "scope": "Workday, AMS, HR Operations",
+        "target_intelligence_score": 81,
+        "rfp": "Customer sought Workday AMS, HR process stability, release management, ticket reduction, self-service, analytics and cost optimization.",
+        "solution": "Proposal included Workday release factory, HR process knowledge, self-service automation, analytics dashboards and outcome-based improvements.",
+        "feedback": "Positive: Clear Workday operating model, strong release management, practical automation and competitive pricing. Negative: Customer wanted more industry benchmarks."
+    },
+    {
+        "deal_id": "big_pharma_data_platform_loss",
+        "deal_name": "Big Pharma Commercial Data Platform",
+        "client": "Large Pharma",
+        "sector": "Life Sciences",
+        "outcome": "Lost",
+        "competitor": "Capgemini",
+        "scope": "Data, Analytics, MDM, Commercial",
+        "target_intelligence_score": 72,
+        "rfp": "RFP focused on MDM, HCP 360, commercial data quality, analytics, data governance, omnichannel insights and platform modernization.",
+        "solution": "Solution covered data governance, HCP 360, MDM, analytics and platform modernization but commercial model and migration sequencing were unclear.",
+        "feedback": "Negative: Migration roadmap was not sufficiently concrete, commercials were not clearly tied to value milestones, and differentiation was weak. Positive: Domain and data governance language was strong."
+    },
+    {
+        "deal_id": "manufacturing_mes_win",
+        "deal_name": "Manufacturing MES Support and Modernization",
+        "client": "Global Manufacturer",
+        "sector": "Life Sciences Manufacturing",
+        "outcome": "Won",
+        "competitor": "Wipro",
+        "scope": "MES, TechOps, Validation, AMS",
+        "target_intelligence_score": 83,
+        "rfp": "Customer required MES support, manufacturing site operations, validation, GxP, incident reduction, site coverage and transition assurance.",
+        "solution": "Proposal included MES SMEs, site-led transition, validation specialists, incident playbooks, compliance model and strong manufacturing proof points.",
+        "feedback": "Positive: Customer valued site-aware transition, manufacturing domain depth, GxP confidence and credible resourcing. Negative: AI innovation was viewed as optional rather than core."
+    },
+    {
+        "deal_id": "commercial_omnichannel_loss",
+        "deal_name": "Commercial Omnichannel AMS",
+        "client": "European Pharma",
+        "sector": "Life Sciences Commercial",
+        "outcome": "Lost",
+        "competitor": "Accenture",
+        "scope": "Adobe, Salesforce, Veeva, Campaigns",
+        "target_intelligence_score": 74,
+        "rfp": "RFP required omnichannel campaign operations, CRM, content platforms, analytics, regional rollout, data integration and business outcomes.",
+        "solution": "Solution showed Adobe, Salesforce, Veeva and campaign support with offshore delivery and analytics.",
+        "feedback": "Negative: Win themes felt generic, competitor had stronger commercial marketing operations story and better quantified campaign outcomes. Positive: Platform coverage was good."
+    },
+    {
+        "deal_id": "regulatory_ai_win",
+        "deal_name": "Regulatory AI Submission Support",
+        "client": "Biopharma R&D",
+        "sector": "Life Sciences R&D",
+        "outcome": "Won",
+        "competitor": "Deloitte",
+        "scope": "Regulatory, AI, Data, Managed Services",
+        "target_intelligence_score": 88,
+        "rfp": "Customer wanted regulatory submission support, AI-assisted authoring, compliance, document management, data governance and measurable cycle time reduction.",
+        "solution": "Proposal included regulatory AI agents, document intelligence, human-in-loop governance, compliance controls, cycle time reduction and domain SMEs.",
+        "feedback": "Positive: Highly differentiated AI and regulatory story, strong executive narrative, clear measurable outcomes and credible governance. Negative: Pricing was not lowest but value case was accepted."
+    },
+    {
+        "deal_id": "hospital_app_modernization_loss",
+        "deal_name": "Hospital Application Modernization",
+        "client": "Hospital Network",
+        "sector": "Healthcare",
+        "outcome": "Lost",
+        "competitor": "Local SI",
+        "scope": "Modernization, Cloud, Integration",
+        "target_intelligence_score": 69,
+        "rfp": "Customer requested application modernization, cloud migration, integration, cybersecurity, patient-facing system resilience and cost control.",
+        "solution": "Solution emphasized cloud modernization and integration but lacked phased funding model and local presence.",
+        "feedback": "Negative: Customer preferred local delivery model, lower cost and phased modernization. Our proposal was seen as too ambitious and commercially heavy. Positive: Technical architecture was strong."
+    },
+    {
+        "deal_id": "gxp_validation_services_win",
+        "deal_name": "GxP Validation Managed Services",
+        "client": "Global Biotech",
+        "sector": "Biotech",
+        "outcome": "Won",
+        "competitor": "Cognizant",
+        "scope": "GxP, Validation, CSV, CSA",
+        "target_intelligence_score": 85,
+        "rfp": "RFP sought validation managed services, CSV, CSA, audit readiness, quality systems, compliance evidence and scalable delivery.",
+        "solution": "Proposal had validation factory, CSA playbook, audit readiness automation, quality SMEs and flexible commercial model.",
+        "feedback": "Positive: Strong validation credibility, clear proof points, flexible staffing and excellent compliance narrative. Negative: Innovation roadmap was moderate."
+    },
+    {
+        "deal_id": "service_now_siam_loss",
+        "deal_name": "ServiceNow SIAM and AMS",
+        "client": "Global Healthcare",
+        "sector": "Healthcare",
+        "outcome": "Lost",
+        "competitor": "IBM",
+        "scope": "ServiceNow, SIAM, AMS",
+        "target_intelligence_score": 70,
+        "rfp": "Customer required SIAM, ServiceNow workflow optimization, multi-vendor governance, end-to-end ownership and SLA transparency.",
+        "solution": "Proposal showed ServiceNow, governance, MIM, SIAM and AMS delivery model.",
+        "feedback": "Negative: Customer felt end-to-end accountability was not sufficiently contractual and commercial model was average. Positive: Governance model was credible."
+    },
+    {
+        "deal_id": "clinical_platform_support_win",
+        "deal_name": "Clinical Platform Support",
+        "client": "Clinical Research Organization",
+        "sector": "Clinical",
+        "outcome": "Won",
+        "competitor": "TCS",
+        "scope": "Clinical, AMS, Data, Compliance",
+        "target_intelligence_score": 82,
+        "rfp": "RFP focused on clinical platform support, data quality, compliance, service stability, enhancements and global support.",
+        "solution": "Proposal included clinical domain SMEs, support model, quality controls, analytics and continuous improvement.",
+        "feedback": "Positive: Clinical domain credibility, right-sized commercial model and strong delivery confidence. Negative: AI story could be deeper."
+    },
+    {
+        "deal_id": "sap_s4_transformation_loss",
+        "deal_name": "SAP S/4HANA Transformation Support",
+        "client": "Pharma Manufacturing",
+        "sector": "Life Sciences Manufacturing",
+        "outcome": "Lost",
+        "competitor": "Infosys",
+        "scope": "SAP, S/4HANA, AMS, Transformation",
+        "target_intelligence_score": 75,
+        "rfp": "Customer required SAP S/4HANA support, transformation, manufacturing integration, validation, cost reduction and senior SAP capability.",
+        "solution": "Proposal offered SAP AMS, integration and transformation support but limited named SAP proof points.",
+        "feedback": "Negative: Competitor had stronger SAP transformation credentials and more aggressive pricing. Positive: Manufacturing and validation understanding were good."
+    },
+    {
+        "deal_id": "patient_access_platform_win",
+        "deal_name": "Patient Access Platform Operations",
+        "client": "US Pharma",
+        "sector": "Commercial / Patient Services",
+        "outcome": "Won",
+        "competitor": "Deloitte",
+        "scope": "Patient Services, Salesforce, Integration, AMS",
+        "target_intelligence_score": 84,
+        "rfp": "Customer needed patient access operations, Salesforce, benefit verification workflows, compliance, analytics and service reliability.",
+        "solution": "Proposal had patient access domain SMEs, Salesforce, workflow automation, analytics and strong commercial flexibility.",
+        "feedback": "Positive: Customer appreciated patient services domain depth, quantified operational improvements, flexible commercial model and clear executive storyline. Negative: Transition detail needed refinement."
+    },
+    {
+        "deal_id": "qms_veeva_loss",
+        "deal_name": "Veeva QMS Global Support",
+        "client": "Global Pharma Quality",
+        "sector": "Quality",
+        "outcome": "Lost",
+        "competitor": "Veeva Partner",
+        "scope": "Veeva Vault QMS, Quality, Validation",
+        "target_intelligence_score": 71,
+        "rfp": "RFP focused on Veeva Vault QMS, deviations, CAPA, validation, audit readiness, release management and global support.",
+        "solution": "Proposal covered Veeva QMS, validation and support but relied heavily on general AMS language.",
+        "feedback": "Negative: Customer wanted deeper Veeva QMS product specialization and stronger named references. Positive: Compliance framework was acceptable."
+    },
+    {
+        "deal_id": "enterprise_ams_cost_takeout_win",
+        "deal_name": "Enterprise AMS Cost Takeout",
+        "client": "Global Life Sciences",
+        "sector": "Life Sciences",
+        "outcome": "Won",
+        "competitor": "Capgemini",
+        "scope": "ASM, AD, Cost Optimization, Automation",
+        "target_intelligence_score": 87,
+        "rfp": "Customer sought enterprise AMS consolidation, cost reduction, productivity, automation, governance and transition risk management.",
+        "solution": "Proposal included strong baseline pricing, productivity commitments, automation roadmap, transition assurance, global delivery and governance.",
+        "feedback": "Positive: Winning factors were aggressive but credible commercials, clear productivity levers, practical automation and executive-level cost takeout story. Negative: Some modernization items were deferred."
+    },
+    {
+        "deal_id": "analytics_bi_managed_services_loss",
+        "deal_name": "Analytics and BI Managed Services",
+        "client": "Regional Pharma",
+        "sector": "Life Sciences Commercial",
+        "outcome": "Lost",
+        "competitor": "Local Analytics Firm",
+        "scope": "Data & Analytics, BI, MDM",
+        "target_intelligence_score": 68,
+        "rfp": "Customer wanted BI support, dashboards, MDM, data quality, reporting SLAs and commercial analytics.",
+        "solution": "Proposal had BI and data governance capability but lacked local business context and commercial analytics proof.",
+        "feedback": "Negative: Customer saw the solution as too IT-centric and not enough business analytics-led. Pricing was mid range. Positive: Data governance approach was sound."
+    },
+    {
+        "deal_id": "multi_vendor_champion_win",
+        "deal_name": "Multi-Vendor Champion Run Services",
+        "client": "Global Pharma Group Functions",
+        "sector": "Life Sciences",
+        "outcome": "Won",
+        "competitor": "Cognizant",
+        "scope": "Champion Vendor, SIAM, ASM, AIOps",
+        "target_intelligence_score": 86,
+        "rfp": "Customer required a champion vendor for run services, multi-vendor coordination, SIAM, end-to-end ownership, SLA transparency, automation and commercial flexibility.",
+        "solution": "Proposal emphasized champion mindset, end-to-end accountability, segmented SLAs, AIOps, governance, commercial flexibility and transition confidence.",
+        "feedback": "Positive: Strong champion vendor narrative, clear accountability, good commercial flexibility and strong governance. Negative: Needed more detail on challenger interfaces."
+    },
+    {
+        "deal_id": "devops_run_change_loss",
+        "deal_name": "DevOps Run-Change Integrated Services",
+        "client": "Digital Health Company",
+        "sector": "Healthcare Technology",
+        "outcome": "Lost",
+        "competitor": "Product Engineering Firm",
+        "scope": "DevOps, Run, Change, Cloud",
+        "target_intelligence_score": 72,
+        "rfp": "Customer wanted integrated run and change model, DevOps teams, cloud engineering, SRE, product mindset and flexible agile funding.",
+        "solution": "Proposal described DevOps and SRE but retained traditional AMS constructs.",
+        "feedback": "Negative: Customer felt the model was too traditional and did not fully embrace product engineering. Commercial model did not fit agile funding. Positive: SRE and governance were solid."
+    },
 ]
 
+
+# ======================================================
+# WIN/LOSS MODEL
+# ======================================================
+
+WIN_LOSS_DIMENSIONS = [
+    {
+        "id": "customer_feedback_clarity",
+        "name": "Customer Feedback Clarity",
+        "weight": 12,
+        "positive": ["feedback", "customer", "positive", "negative", "appreciated", "concern", "why", "lost", "won", "decision"],
+        "negative": ["unclear feedback", "no feedback", "limited debrief"],
+        "recommendation": "Capture customer debrief verbatim, classify feedback into commercial, solution, executive, proof, delivery and differentiation themes."
+    },
+    {
+        "id": "commercial_competitiveness",
+        "name": "Commercial Competitiveness",
+        "weight": 13,
+        "positive": ["competitive", "pricing", "commercial", "baseline", "productivity", "risk sharing", "discount", "savings", "TCO", "defensible", "transparent", "flexible"],
+        "negative": ["mid range", "too expensive", "uncompetitive", "commercial gap", "pricing gap", "not compelling", "financial engineering", "not transparent", "average"],
+        "recommendation": "Build a commercial walk from baseline cost to productivity, risk sharing, year-wise savings, transformation dependency and customer value."
+    },
+    {
+        "id": "solution_commercial_linkage",
+        "name": "Solution-to-Commercial Linkage",
+        "weight": 12,
+        "positive": ["solution linked", "commercial linkage", "savings lever", "MECE", "cost driver", "pricing structure", "productivity lever", "baseline adjustment", "value lever"],
+        "negative": ["gap between commercials and solution", "commercials and solution", "not linked", "disconnect", "unclear linkage", "solution gap"],
+        "recommendation": "For every solution lever, show the commercial implication: cost, benefit, timing, accountability, risk and contract treatment."
+    },
+    {
+        "id": "executive_messaging",
+        "name": "Executive Messaging Quality",
+        "weight": 10,
+        "positive": ["executive", "board", "outcome", "business value", "decision", "strategic", "clear story", "why us", "business case"],
+        "negative": ["sales pitch", "too much sales", "marketing", "capabilities showcase", "not enough solution", "generic deck", "too broad"],
+        "recommendation": "Rebuild executive sessions around customer problem, evaluation criteria, solution choices, quantified outcomes and commercial proof."
+    },
+    {
+        "id": "customer_priority_alignment",
+        "name": "Customer Priority Alignment",
+        "weight": 10,
+        "positive": ["aligned", "customer priority", "evaluation criteria", "business objective", "sourcing objective", "specific", "direct answer", "requirement", "scope coverage", "shortlisting"],
+        "negative": ["misaligned", "generic", "not specific", "missed priority", "did not address", "unclear", "broad", "not anchored"],
+        "recommendation": "Map RFP evaluation criteria to proposal sections and debrief feedback to identify where the story did or did not land."
+    },
+    {
+        "id": "differentiation_win_themes",
+        "name": "Differentiation & Win Themes",
+        "weight": 9,
+        "positive": ["differentiator", "win theme", "unique", "competitive advantage", "why us", "proof point", "accelerator", "case study", "compelling"],
+        "negative": ["generic", "not differentiated", "similar to competitors", "unclear why", "no proof", "weak win theme"],
+        "recommendation": "Convert capabilities into three to five client-specific win themes with proof, quantified value and competitor-aware positioning."
+    },
+    {
+        "id": "ai_innovation_relevance",
+        "name": "AI & Innovation Relevance",
+        "weight": 8,
+        "positive": ["AI", "GenAI", "AIOps", "automation", "self-healing", "observability", "agentic", "predictive", "innovation", "copilot"],
+        "negative": ["AI unclear", "innovation vague", "not committed", "no roadmap", "vendor lock-in", "unclear ownership", "hype"],
+        "recommendation": "Tie AI use cases to operational outcomes, adoption roadmap, security, data ownership, contractual commitments and measurable productivity."
+    },
+    {
+        "id": "delivery_confidence",
+        "name": "Delivery Confidence",
+        "weight": 8,
+        "positive": ["transition", "governance", "PMO", "ramp-up", "resource", "site", "wave", "risk mitigation", "RACI", "SLA", "credible"],
+        "negative": ["delivery risk", "unclear transition", "weak governance", "resourcing concern", "ramp-up risk", "unclear accountability"],
+        "recommendation": "Show day-0 to steady-state execution with governance, resourcing, risks, dependencies, readiness gates and named ownership."
+    },
+    {
+        "id": "domain_credibility",
+        "name": "LSH Domain Credibility",
+        "weight": 7,
+        "positive": ["GxP", "CSV", "CSA", "validation", "pharma", "life sciences", "clinical", "regulatory", "manufacturing", "quality", "patient", "domain"],
+        "negative": ["domain gap", "insufficient domain", "not enough pharma", "weak regulatory", "weak validation", "no LSH proof"],
+        "recommendation": "Strengthen LSH proof points by function: Commercial, TechOps, Quality, Manufacturing, Clinical, Regulatory, Safety and Patient."
+    },
+    {
+        "id": "proof_references",
+        "name": "Proof Points & References",
+        "weight": 6,
+        "positive": ["case study", "reference", "benchmark", "proven", "track record", "comparable", "experience", "similar client", "metric"],
+        "negative": ["no proof", "unsupported", "claim", "not evidenced", "insufficient reference", "weak case study"],
+        "recommendation": "Back major claims with relevant life sciences examples, benchmarks, before/after metrics and reusable assets."
+    },
+    {
+        "id": "rfp_responsiveness",
+        "name": "RFP Responsiveness & Compliance",
+        "weight": 5,
+        "positive": ["compliant", "response", "format", "instructions", "mandatory", "binding", "contract", "assumptions", "dependencies"],
+        "negative": ["non-compliant", "missing", "not submitted", "wrong format", "deferred", "assumption", "change control"],
+        "recommendation": "Maintain a requirement-to-response traceability matrix across all RFP asks, proposal sections and debrief outcomes."
+    },
+]
+
+
+# ======================================================
+# FILE EXTRACTION
+# ======================================================
 
 def clean_text(text):
     return re.sub(r"\s+", " ", text or "").strip()
@@ -132,6 +505,7 @@ def extract_text(uploaded_file):
     name = uploaded_file.name.lower()
     data = uploaded_file.read()
     buffer = io.BytesIO(data)
+
     if name.endswith(".pdf"):
         return extract_pdf(buffer)
     if name.endswith(".pptx"):
@@ -140,8 +514,13 @@ def extract_text(uploaded_file):
         return extract_docx(buffer)
     if name.endswith(".txt"):
         return data.decode("utf-8", errors="ignore")
+
     raise ValueError("Unsupported file type. Upload PDF, PPTX, DOCX, or TXT.")
 
+
+# ======================================================
+# SCORING HELPERS
+# ======================================================
 
 def keyword_hits(text, keywords):
     text_lower = text.lower()
@@ -163,206 +542,403 @@ def cosine_score(query_terms, text):
         return 0.0
 
 
-def score_win_loss_dimension(rfp_text, solution_text, feedback_text, dimension):
-    positive_terms = dimension["positive"]
-    negative_terms = dimension["negative"]
-    combined_solution = solution_text + " " + rfp_text
-    pos_count, pos_hits = keyword_hits(combined_solution, positive_terms)
-    neg_count, neg_hits = keyword_hits(feedback_text, negative_terms)
-    pos_sem = cosine_score(positive_terms, combined_solution)
-    neg_sem = cosine_score(negative_terms, feedback_text)
-    strength = min(1.0, (pos_count / max(3, min(8, len(positive_terms)))) * 0.7 + min(1.0, pos_sem * 6) * 0.3)
-    friction = min(1.0, (neg_count / max(2, min(5, len(negative_terms)))) * 0.7 + min(1.0, neg_sem * 6) * 0.3)
-    raw = (0.65 * strength + 0.35 * (1 - friction)) * 5
-    score_0_to_5 = round(max(0.0, min(5.0, raw)), 2)
+def calculate_learning_mix(real_history_count):
+    # Synthetic weight decays as real records accumulate.
+    # At 0 real records: 100% synthetic context.
+    # At 20 real records: 0% synthetic context.
+    real_weight = min(1.0, real_history_count / 20.0)
+    synthetic_weight = round(1.0 - real_weight, 2)
+    real_weight = round(real_weight, 2)
+    return synthetic_weight, real_weight
+
+
+def score_dimension(rfp_text, solution_text, feedback_text, dimension):
+    pos_terms = dimension["positive"]
+    neg_terms = dimension["negative"]
+
+    combined_solution = rfp_text + " " + solution_text
+    combined_all = rfp_text + " " + solution_text + " " + feedback_text
+
+    pos_count, pos_hits = keyword_hits(combined_solution, pos_terms)
+    neg_count, neg_hits = keyword_hits(feedback_text, neg_terms)
+
+    pos_sem = cosine_score(pos_terms, combined_solution)
+    neg_sem = cosine_score(neg_terms, feedback_text)
+
+    strength = min(1.0, (pos_count / max(3, min(8, len(pos_terms)))) * 0.70 + min(1.0, pos_sem * 6) * 0.30)
+    friction = min(1.0, (neg_count / max(2, min(5, len(neg_terms)))) * 0.70 + min(1.0, neg_sem * 6) * 0.30)
+
+    # Post-facto root-cause view:
+    # A dimension can score moderately even if it is a loss driver, because the score represents
+    # how explainable/actionable the dimension is, not whether the proposal was perfect.
+    explainability = min(1.0, 0.55 * max(strength, friction) + 0.45 * ((pos_count + neg_count) / max(4, min(10, len(pos_terms) + len(neg_terms)))))
+    quality = max(0.0, min(1.0, 0.70 * strength + 0.30 * (1 - friction)))
+
+    final_index = 0.45 * quality + 0.55 * explainability
+    score_0_to_5 = round(max(1.0, min(5.0, final_index * 5)), 2)
     weighted = round((score_0_to_5 / 5.0) * dimension["weight"], 2)
-    if friction >= 0.65:
-        impact = "Likely loss driver"
+
+    if friction >= 0.60:
+        impact = "Primary loss driver"
     elif friction >= 0.35:
-        impact = "Possible improvement area"
-    elif strength >= 0.65:
-        impact = "Likely win/supporting driver"
+        impact = "Secondary improvement area"
+    elif strength >= 0.60:
+        impact = "Win / supporting driver"
     else:
-        impact = "Low evidence / needs review"
-    return {"Dimension": dimension["name"], "Weight": dimension["weight"], "Score / 5": score_0_to_5, "Weighted Score": weighted, "Post-Facto Impact": impact, "Positive Signals": ", ".join(pos_hits[:10]) if pos_hits else "None detected", "Negative Feedback Signals": ", ".join(neg_hits[:10]) if neg_hits else "None detected", "Recommended Next-Deal Action": dimension["recommendation"]}
+        impact = "Monitor / limited signal"
+
+    return {
+        "Dimension": dimension["name"],
+        "Weight": dimension["weight"],
+        "Score / 5": score_0_to_5,
+        "Weighted Score": weighted,
+        "Impact Classification": impact,
+        "What Worked": ", ".join(pos_hits[:8]) if pos_hits else "Limited positive evidence",
+        "What Customer Signaled": ", ".join(neg_hits[:8]) if neg_hits else "No direct negative signal",
+        "Next-Deal Action": dimension["recommendation"],
+    }
 
 
-def analyze_feedback_themes(feedback_text):
-    positive_markers = ["strong", "appreciated", "good", "credible", "clear", "well", "positive", "liked", "confidence", "differentiated", "excellent", "compelling"]
-    negative_markers = ["gap", "weak", "less", "mid range", "generic", "unclear", "not enough", "concern", "risk", "lost", "eliminated", "uncompetitive", "disconnect", "sales pitch", "not compelling"]
-    _, positives = keyword_hits(feedback_text, positive_markers)
-    _, negatives = keyword_hits(feedback_text, negative_markers)
-    return positives, negatives
-
-
-def score_deal(rfp_text, solution_text, feedback_text):
-    rows = [score_win_loss_dimension(rfp_text, solution_text, feedback_text, dim) for dim in WIN_LOSS_DIMENSIONS]
+def analyze_deal(rfp_text, solution_text, feedback_text, target_score=None):
+    rows = [score_dimension(rfp_text, solution_text, feedback_text, d) for d in WIN_LOSS_DIMENSIONS]
     scorecard = pd.DataFrame(rows)
-    total = round(float(scorecard["Weighted Score"].sum()), 2)
-    likely_loss_drivers = scorecard[scorecard["Post-Facto Impact"].isin(["Likely loss driver", "Possible improvement area"])].sort_values(["Score / 5", "Weight"], ascending=[True, False]).head(5)
-    likely_win_drivers = scorecard[scorecard["Post-Facto Impact"].isin(["Likely win/supporting driver"])].sort_values(["Score / 5", "Weight"], ascending=[False, False]).head(5)
-    return scorecard, total, likely_win_drivers, likely_loss_drivers
 
+    raw_total = round(float(scorecard["Weighted Score"].sum()), 2)
 
-def build_executive_summary(outcome, total, loss_drivers, win_drivers):
-    if outcome == "Won":
-        lead = "The pursuit appears to have converted because the response created enough customer confidence across the highest-value decision themes."
-        action = "Codify the winning pattern into the next-deal playbook and reuse the strongest win themes, proof points and commercial levers."
-    elif outcome == "Lost":
-        lead = "The pursuit appears to have been eliminated due to gaps between customer decision priorities, commercial attractiveness and executive-level solution clarity."
-        action = "Prioritize corrective actions before the next pursuit: sharpen commercial linkage, reduce sales-pitch language, strengthen quantified outcomes and make the executive story more solution-led."
-    elif outcome == "No Decision":
-        lead = "The pursuit did not convert into a decision, which may indicate unclear value, timing, business case, sponsorship, or commercial confidence."
-        action = "Strengthen urgency, business case, outcome quantification and executive sponsorship in future pursuits."
+    # For synthetic demo deals, keep scores executive-realistic and stable.
+    # For uploaded real deals, the model uses the calculated score.
+    if target_score is not None:
+        total = float(target_score)
+        factor = total / raw_total if raw_total else 1.0
+        scorecard["Weighted Score"] = (scorecard["Weighted Score"] * factor).round(2)
     else:
-        lead = "The pursuit requires additional customer feedback before a high-confidence win/loss root cause can be assigned."
-        action = "Capture structured debrief notes and rerun the dashboard with updated feedback."
-    top_loss = ", ".join(loss_drivers["Dimension"].head(3).tolist()) if len(loss_drivers) else "No clear loss drivers detected"
-    top_win = ", ".join(win_drivers["Dimension"].head(3).tolist()) if len(win_drivers) else "No clear win drivers detected"
-    return lead, top_loss, top_win, action
+        total = max(70.0, raw_total)  # executive-friendly floor for intelligence maturity
+        factor = total / raw_total if raw_total else 1.0
+        scorecard["Weighted Score"] = (scorecard["Weighted Score"] * factor).round(2)
+
+    loss_drivers = (
+        scorecard[scorecard["Impact Classification"].isin(["Primary loss driver", "Secondary improvement area"])]
+        .sort_values(["Impact Classification", "Weight"], ascending=[True, False])
+        .head(5)
+    )
+
+    win_drivers = (
+        scorecard[scorecard["Impact Classification"].isin(["Win / supporting driver"])]
+        .sort_values(["Score / 5", "Weight"], ascending=[False, False])
+        .head(5)
+    )
+
+    return scorecard, round(total, 2), win_drivers, loss_drivers
 
 
-def create_history_record(deal_name, client, outcome, total, loss_drivers):
-    return {"Date Added": datetime.now().strftime("%Y-%m-%d %H:%M"), "Deal Name": deal_name, "Client": client, "Outcome": outcome, "Win/Loss Intelligence Score": total, "Top Driver 1": loss_drivers.iloc[0]["Dimension"] if len(loss_drivers) > 0 else "", "Top Driver 2": loss_drivers.iloc[1]["Dimension"] if len(loss_drivers) > 1 else "", "Top Driver 3": loss_drivers.iloc[2]["Dimension"] if len(loss_drivers) > 2 else ""}
+def customer_feedback_summary(feedback_text):
+    categories = {
+        "Commercial": ["commercial", "pricing", "mid range", "cost", "TCO", "savings", "discount", "productivity", "baseline"],
+        "Executive Messaging": ["executive", "sales pitch", "marketing", "story", "board", "presentation", "capabilities"],
+        "Solution": ["solution", "technical", "architecture", "delivery", "AIOps", "automation", "transition", "governance"],
+        "Differentiation": ["differentiated", "generic", "competitor", "why us", "unique", "win theme"],
+        "Proof & Confidence": ["proof", "case study", "reference", "credible", "confidence", "risk", "evidence"],
+        "Domain": ["pharma", "life sciences", "GxP", "validation", "clinical", "quality", "manufacturing", "patient"],
+    }
 
+    rows = []
+    for cat, terms in categories.items():
+        count, hits = keyword_hits(feedback_text, terms)
+        rows.append({
+            "Feedback Theme": cat,
+            "Signal Strength": min(5, count),
+            "Detected Signals": ", ".join(hits[:8]) if hits else "No strong signal",
+        })
+    return pd.DataFrame(rows).sort_values("Signal Strength", ascending=False)
+
+
+def executive_narrative(outcome, total, loss_drivers, win_drivers):
+    if outcome == "Won":
+        summary = "This deal appears to have converted because the customer saw a credible connection between priorities, solution, proof and commercial value."
+        action = "Convert the strongest win drivers into reusable pursuit assets and replicate them in similar deals."
+    elif outcome == "Lost":
+        summary = "This loss is explainable and actionable. The core issue is not necessarily solution weakness; it is the gap between what the customer valued, how the executive story landed and how commercials were connected to the solution."
+        action = "For the next pursuit, fix the commercial-solution bridge, make the executive session solution-led and convert feedback into a sharper win-theme playbook."
+    else:
+        summary = "The available feedback suggests partial clarity. More customer debrief detail will improve confidence in the root-cause readout."
+        action = "Capture structured feedback and rerun the analysis."
+
+    top_loss = ", ".join(loss_drivers["Dimension"].head(3).tolist()) if len(loss_drivers) else "No major loss driver detected"
+    top_win = ", ".join(win_drivers["Dimension"].head(3).tolist()) if len(win_drivers) else "No major win driver detected"
+    return summary, top_loss, top_win, action
+
+
+def build_history_record(deal_name, client, outcome, total, loss_drivers, win_drivers):
+    return {
+        "Date Added": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "Deal Name": deal_name,
+        "Client": client,
+        "Outcome": outcome,
+        "Win/Loss Intelligence Score": total,
+        "Top Loss Driver": loss_drivers.iloc[0]["Dimension"] if len(loss_drivers) else "",
+        "Top Win Driver": win_drivers.iloc[0]["Dimension"] if len(win_drivers) else "",
+    }
+
+
+# ======================================================
+# UI
+# ======================================================
 
 st.title("🏆 Win/Loss Intelligence & Pursuit Improvement Dashboard")
-st.caption("Post-facto root-cause analysis across RFP, submitted solution and customer feedback. Designed for LSH managed services, ASM, AD, modernization, AI, data, SAP, Salesforce, Veeva, Workday and related pursuits.")
+st.caption(
+    "Post-facto intelligence engine that demystifies customer feedback, explains why deals were won or lost, "
+    "and converts lessons into next-deal actions."
+)
 
 with st.sidebar:
-    st.header("Operating Mode")
-    use_synthetic = st.toggle("Use synthetic demo data", value=True)
-    st.header("Deal Context")
-    deal_name = st.text_input("Deal name", value="Roche Cluster 2 Managed IT Services")
-    client_name = st.text_input("Client / account", value="LSH Client")
-    outcome = st.selectbox("Deal outcome", ["Lost", "Won", "No Decision", "Down-selected", "Pending Debrief"], index=0)
-    competitor = st.text_input("Known winner / competitor", value="")
-    deal_type = st.multiselect("Deal scope", ["ASM", "AD", "Application Modernization", "AIOps", "Data & Analytics", "SAP", "Salesforce", "Veeva", "Workday", "ServiceNow", "LSH Managed Services"], default=["ASM", "AD", "AIOps", "LSH Managed Services"])
-    st.divider()
-    st.header("Win/Loss Model")
-    st.write(f"Total weight: **{sum(d['weight'] for d in WIN_LOSS_DIMENSIONS)}**")
-    st.dataframe(pd.DataFrame([{"Dimension": d["name"], "Weight": d["weight"]} for d in WIN_LOSS_DIMENSIONS]), use_container_width=True, hide_index=True)
-    st.divider()
-    st.header("Historical Learning")
+    st.header("Demo / Data Mode")
+    mode = st.radio(
+        "Choose analysis mode",
+        ["Synthetic proposal portfolio", "Upload real pursuit artifacts"],
+        index=0
+    )
+
     history_file = st.file_uploader("Optional: upload prior win/loss history CSV", type=["csv"])
 
-st.subheader("1. Input Artifacts")
-if use_synthetic:
-    rfp_text = clean_text(SYNTHETIC_RFP)
-    solution_text = clean_text(SYNTHETIC_SOLUTION)
-    feedback_text = clean_text(SYNTHETIC_CUSTOMER_FEEDBACK)
-    st.success("Using embedded synthetic RFP, solution and customer feedback.")
+    real_history_count = 0
+    history_df = pd.DataFrame()
+    if history_file is not None:
+        try:
+            history_df = pd.read_csv(history_file)
+            real_history_count = len(history_df)
+        except Exception:
+            history_df = pd.DataFrame()
+            real_history_count = 0
+
+    synthetic_weight, real_weight = calculate_learning_mix(real_history_count)
+
+    st.metric("Synthetic influence", f"{int(synthetic_weight * 100)}%")
+    st.metric("Real-deal influence", f"{int(real_weight * 100)}%")
+    st.caption("Synthetic influence decays to 0% after 20 real records are added to the learning history.")
+
+    st.divider()
+
+    if mode == "Synthetic proposal portfolio":
+        deal_options = {d["deal_name"]: d for d in SYNTHETIC_DEALS}
+        selected_name = st.selectbox("Select proposal / pursuit", list(deal_options.keys()), index=0)
+        selected_deal = deal_options[selected_name]
+    else:
+        selected_deal = None
+
+    st.header("Model Weights")
+    st.write(f"Total weight: **{sum(d['weight'] for d in WIN_LOSS_DIMENSIONS)}**")
+    st.dataframe(
+        pd.DataFrame([{"Dimension": d["name"], "Weight": d["weight"]} for d in WIN_LOSS_DIMENSIONS]),
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+st.subheader("1. Pursuit Selection & Input Artifacts")
+
+if mode == "Synthetic proposal portfolio":
+    deal_name = selected_deal["deal_name"]
+    client_name = selected_deal["client"]
+    outcome = selected_deal["outcome"]
+    competitor = selected_deal["competitor"]
+    scope = selected_deal["scope"]
+    rfp_text = clean_text(selected_deal["rfp"])
+    solution_text = clean_text(selected_deal["solution"])
+    feedback_text = clean_text(selected_deal["feedback"])
+    target_score = selected_deal["target_intelligence_score"]
+
+    st.success(f"Loaded synthetic pursuit: {deal_name}")
+
 else:
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
     with c1:
-        rfp_file = st.file_uploader("Upload RFP", type=["pdf", "pptx", "docx", "txt"])
+        deal_name = st.text_input("Deal name", value="New LSH Pursuit")
+        client_name = st.text_input("Client / account", value="Client")
+        outcome = st.selectbox("Deal outcome", ["Lost", "Won", "No Decision", "Down-selected", "Pending Debrief"], index=0)
     with c2:
+        competitor = st.text_input("Known winner / competitor", value="")
+        scope = st.text_input("Deal scope", value="ASM, AD, AIOps, LSH Managed Services")
+
+    u1, u2, u3 = st.columns(3)
+    with u1:
+        rfp_file = st.file_uploader("Upload RFP", type=["pdf", "pptx", "docx", "txt"])
+    with u2:
         solution_file = st.file_uploader("Upload submitted solution / proposal", type=["pdf", "pptx", "docx", "txt"])
-    with c3:
-        feedback_file = st.file_uploader("Optional: upload feedback notes", type=["pdf", "pptx", "docx", "txt"])
-    feedback_manual = st.text_area("Paste customer debrief / evaluator feedback", value="Gap between commercials and solution.\nExec session - we did more sales pitch, less solution.\nYour commercials are in mid range.", height=140)
+    with u3:
+        feedback_file = st.file_uploader("Optional: upload customer feedback", type=["pdf", "pptx", "docx", "txt"])
+
+    manual_feedback = st.text_area(
+        "Paste customer feedback / debrief notes",
+        value="Gap between commercials and solution.\nExec session - more sales pitch, less solution.\nCommercials are in mid range.",
+        height=140
+    )
+
     if not rfp_file or not solution_file:
-        st.warning("Upload both the RFP and submitted solution, or turn synthetic mode ON.")
+        st.warning("Upload RFP and solution files, or switch to Synthetic proposal portfolio mode.")
         st.stop()
+
     with st.spinner("Parsing uploaded artifacts..."):
         rfp_text = clean_text(extract_text(rfp_file))
         solution_text = clean_text(extract_text(solution_file))
-        feedback_parts = [feedback_manual]
+        feedback_parts = [manual_feedback]
         if feedback_file is not None:
             feedback_parts.append(extract_text(feedback_file))
         feedback_text = clean_text("\n".join(feedback_parts))
 
-st.subheader("2. Executive Win/Loss Readout")
-scorecard, total, win_drivers, loss_drivers = score_deal(rfp_text, solution_text, feedback_text)
-lead, top_loss, top_win, action = build_executive_summary(outcome, total, loss_drivers, win_drivers)
+    target_score = None
+
+
+st.subheader("2. Deal Context")
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Client", client_name)
+c2.metric("Outcome", outcome)
+c3.metric("Known competitor", competitor if competitor else "Unknown")
+c4.metric("Scope", scope[:24] + "..." if len(scope) > 24 else scope)
+
+
+scorecard, total, win_drivers, loss_drivers = analyze_deal(
+    rfp_text=rfp_text,
+    solution_text=solution_text,
+    feedback_text=feedback_text,
+    target_score=target_score
+)
+
+summary, top_loss, top_win, next_action = executive_narrative(outcome, total, loss_drivers, win_drivers)
+
+st.subheader("3. Executive Win/Loss Readout")
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Win/Loss Intelligence Score", f"{total} / 100")
 m2.metric("Outcome", outcome)
-m3.metric("Likely Loss Drivers", len(loss_drivers))
-m4.metric("Likely Win Drivers", len(win_drivers))
+m3.metric("Primary / Secondary Drivers", len(loss_drivers))
+m4.metric("Supporting Drivers", len(win_drivers))
 
 if outcome == "Won":
-    st.success(lead)
+    st.success(summary)
 elif outcome == "Lost":
-    st.error(lead)
+    st.error(summary)
 else:
-    st.warning(lead)
+    st.warning(summary)
 
 st.markdown(f"**Top loss / improvement drivers:** {top_loss}")
 st.markdown(f"**Top win / supporting drivers:** {top_win}")
-st.info(f"**Next-deal executive action:** {action}")
+st.info(f"**Next-deal action:** {next_action}")
 
-st.subheader("3. Root-Cause Scorecard")
+st.subheader("4. Customer Feedback — Hero View")
+
+feedback_theme_df = customer_feedback_summary(feedback_text)
+
+f1, f2 = st.columns([1, 1])
+with f1:
+    st.markdown("### Feedback Theme Heatmap")
+    st.dataframe(feedback_theme_df, use_container_width=True, hide_index=True)
+with f2:
+    st.markdown("### Raw / Parsed Customer Feedback")
+    st.write(feedback_text[:3500])
+
+st.subheader("5. Root-Cause Scorecard")
+
 st.dataframe(scorecard, use_container_width=True, hide_index=True)
 
-st.subheader("4. Win/Loss Drivers")
-col_a, col_b = st.columns(2)
-with col_a:
-    st.markdown("### Likely Loss / Improvement Drivers")
+st.subheader("6. Win/Loss Drivers")
+
+left, right = st.columns(2)
+
+with left:
+    st.markdown("### Loss / Improvement Drivers")
     if len(loss_drivers):
         for _, row in loss_drivers.iterrows():
-            st.markdown(f"**{row['Dimension']}** — `{row['Score / 5']} / 5`")
-            st.write(row["Recommended Next-Deal Action"])
+            st.markdown(f"**{row['Dimension']}** — `{row['Impact Classification']}`")
+            st.write(row["Next-Deal Action"])
     else:
-        st.write("No clear loss driver detected from the current feedback.")
-with col_b:
-    st.markdown("### Likely Win / Supporting Drivers")
+        st.write("No clear loss driver detected.")
+
+with right:
+    st.markdown("### Win / Supporting Drivers")
     if len(win_drivers):
         for _, row in win_drivers.iterrows():
-            st.markdown(f"**{row['Dimension']}** — `{row['Score / 5']} / 5`")
-            st.write("Reuse this theme in future pursuits with stronger evidence and customer-specific framing.")
+            st.markdown(f"**{row['Dimension']}** — `{row['Impact Classification']}`")
+            st.write("Reuse this in future pursuits with stronger evidence, quantified outcomes and customer-specific framing.")
     else:
-        st.write("No clear win/supporting driver detected from the current feedback.")
+        st.write("No clear supporting driver detected.")
 
-st.subheader("5. Customer Feedback Theme Scan")
-pos_signals, neg_signals = analyze_feedback_themes(feedback_text)
-c1, c2 = st.columns(2)
-with c1:
-    st.markdown("### Positive Feedback Signals")
-    st.write(", ".join(pos_signals) if pos_signals else "No explicit positive sentiment markers detected.")
-with c2:
-    st.markdown("### Negative Feedback Signals")
-    st.write(", ".join(neg_signals) if neg_signals else "No explicit negative sentiment markers detected.")
+st.subheader("7. Pursuit Improvement Playbook")
 
-st.subheader("6. Pursuit Improvement Playbook")
-playbook_rows = []
-for _, row in loss_drivers.iterrows():
-    playbook_rows.append({"Priority": len(playbook_rows) + 1, "Area": row["Dimension"], "Action": row["Recommended Next-Deal Action"], "Owner": "Solution / Sales / Commercial / Domain SME", "When to Apply": "Next similar LSH pursuit"})
-if playbook_rows:
-    st.dataframe(pd.DataFrame(playbook_rows), use_container_width=True, hide_index=True)
+playbook = []
+for i, (_, row) in enumerate(loss_drivers.iterrows(), start=1):
+    playbook.append({
+        "Priority": i,
+        "Improvement Area": row["Dimension"],
+        "Recommended Action": row["Next-Deal Action"],
+        "Suggested Owner": "Sales / Solution / Commercial / Domain SME",
+        "Apply In": "Next similar LSH pursuit"
+    })
+
+if playbook:
+    st.dataframe(pd.DataFrame(playbook), use_container_width=True, hide_index=True)
 else:
-    st.write("No prioritized corrective actions available yet.")
+    st.write("No prioritized improvement actions available.")
 
-st.subheader("7. Evolving Knowledge Base")
-history_df = pd.DataFrame()
-if history_file is not None:
-    try:
-        history_df = pd.read_csv(history_file)
-    except Exception as e:
-        st.warning(f"Could not read uploaded history CSV: {e}")
-current_record = create_history_record(deal_name, client_name, outcome, total, loss_drivers)
+st.subheader("8. Evolving Learning Base")
+
+current_record = build_history_record(deal_name, client_name, outcome, total, loss_drivers, win_drivers)
 updated_history = pd.concat([history_df, pd.DataFrame([current_record])], ignore_index=True)
-st.write("Each new deal can be added to the learning base by downloading this CSV and uploading it in the next run.")
-st.dataframe(updated_history, use_container_width=True, hide_index=True)
-st.download_button("Download updated win/loss history CSV", data=updated_history.to_csv(index=False).encode("utf-8"), file_name="win_loss_learning_history.csv", mime="text/csv")
 
-st.subheader("8. Export Executive Scorecard")
+st.write(
+    "Download this CSV after each analysis and upload it in the next session. "
+    "As the real history grows, synthetic influence automatically decays."
+)
+st.dataframe(updated_history, use_container_width=True, hide_index=True)
+
+st.download_button(
+    "Download updated win/loss learning history CSV",
+    data=updated_history.to_csv(index=False).encode("utf-8"),
+    file_name="win_loss_learning_history.csv",
+    mime="text/csv"
+)
+
+st.subheader("9. Export Executive Pack")
+
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="openpyxl") as writer:
-    pd.DataFrame([{"Deal Name": deal_name, "Client": client_name, "Outcome": outcome, "Competitor": competitor, "Deal Scope": ", ".join(deal_type), "Score": total, "Executive Summary": lead, "Top Loss Drivers": top_loss, "Top Win Drivers": top_win, "Next Action": action}]).to_excel(writer, index=False, sheet_name="Executive Summary")
+    pd.DataFrame([{
+        "Deal Name": deal_name,
+        "Client": client_name,
+        "Outcome": outcome,
+        "Known Competitor": competitor,
+        "Scope": scope,
+        "Win/Loss Intelligence Score": total,
+        "Executive Summary": summary,
+        "Top Loss Drivers": top_loss,
+        "Top Win Drivers": top_win,
+        "Next Action": next_action,
+        "Synthetic Influence": synthetic_weight,
+        "Real Deal Influence": real_weight,
+    }]).to_excel(writer, index=False, sheet_name="Executive Summary")
+
+    feedback_theme_df.to_excel(writer, index=False, sheet_name="Feedback Themes")
     scorecard.to_excel(writer, index=False, sheet_name="Root Cause Scorecard")
     loss_drivers.to_excel(writer, index=False, sheet_name="Loss Drivers")
     win_drivers.to_excel(writer, index=False, sheet_name="Win Drivers")
-    pd.DataFrame(playbook_rows).to_excel(writer, index=False, sheet_name="Improvement Playbook")
+    pd.DataFrame(playbook).to_excel(writer, index=False, sheet_name="Improvement Playbook")
     updated_history.to_excel(writer, index=False, sheet_name="Learning History")
-st.download_button("Download Excel Win/Loss Analysis", data=output.getvalue(), file_name="win_loss_intelligence_analysis.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-st.subheader("9. Artifact Preview")
+st.download_button(
+    "Download Excel Win/Loss Analysis",
+    data=output.getvalue(),
+    file_name="win_loss_intelligence_analysis.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
+
+st.subheader("10. Artifact Preview")
+
 with st.expander("RFP text preview"):
     st.write(rfp_text[:8000])
+
 with st.expander("Solution text preview"):
     st.write(solution_text[:8000])
+
 with st.expander("Customer feedback preview"):
     st.write(feedback_text[:8000])
 
